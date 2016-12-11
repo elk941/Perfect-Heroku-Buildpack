@@ -71,8 +71,8 @@ step Setting environment
 BUILD_DIR=$1
 CACHE_DIR=$2
 SCRIPT_VER=3
-SWIFT_VER="swift-3.0-RELEASE"
-SWIFT_VER_LC="swift-3.0-release"
+SWIFT_VER=$(if [[ -f /app/.swift-version ]]; then echo $(if [[ $(echo $(head /app/.swift-version)) ]]; then echo $(head /app/.swift-version); else echo "swift-3.0-RELEASE"; fi); else echo "swift-3.0-RELEASE"; fi)
+SWIFT_VER_LC=$(echo "$SWIFT_VER" | tr '[:upper:]' '[:lower:]')
 #SWIFT_VER="swift-DEVELOPMENT-SNAPSHOT-2016-06-20-a"
 say Ok
 
