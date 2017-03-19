@@ -1,82 +1,69 @@
-# Perfect Heroku Buildpack
+# Heroku buildpack: swift
 
-<p align="center">
-    <a href="http://perfect.org/get-involved.html" target="_blank">
-        <img src="http://perfect.org/assets/github/perfect_github_2_0_0.jpg" alt="Get Involed with Perfect!" width="854" />
-    </a>
-</p>
+This is a Heroku buildpack for Swift apps that are powered by the Swift Package Manager.
 
-<p align="center">
-    <a href="https://github.com/PerfectlySoft/Perfect" target="_blank">
-        <img src="http://www.perfect.org/github/Perfect_GH_button_1_Star.jpg" alt="Star Perfect On Github" />
-    </a>  
-    <a href="https://gitter.im/PerfectlySoft/Perfect" target="_blank">
-        <img src="http://www.perfect.org/github/Perfect_GH_button_2_Git.jpg" alt="Chat on Gitter" />
-    </a>  
-    <a href="https://twitter.com/perfectlysoft" target="_blank">
-        <img src="http://www.perfect.org/github/Perfect_GH_button_3_twit.jpg" alt="Follow Perfect on Twitter" />
-    </a>  
-    <a href="http://perfect.ly" target="_blank">
-        <img src="http://www.perfect.org/github/Perfect_GH_button_4_slack.jpg" alt="Join the Perfect Slack" />
-    </a> 
-</p>
+Check out the [Curassow-example-helloworld](https://github.com/kylef/Curassow-example-helloworld)
+for a fully working example that can be deployed to Heroku.
 
-<p align="center">
-    <a href="https://developer.apple.com/swift/" target="_blank">
-        <img src="https://img.shields.io/badge/Swift-3.0-orange.svg?style=flat" alt="Swift 3.0">
-    </a>
-    <a href="https://developer.apple.com/swift/" target="_blank">
-        <img src="https://img.shields.io/badge/Platforms-OS%20X%20%7C%20Linux%20-lightgray.svg?style=flat" alt="Platforms OS X | Linux">
-    </a>
-    <a href="http://perfect.org/licensing.html" target="_blank">
-        <img src="https://img.shields.io/badge/License-Apache-lightgrey.svg?style=flat" alt="License Apache">
-    </a>
-    <a href="http://twitter.com/PerfectlySoft" target="_blank">
-        <img src="https://img.shields.io/badge/Twitter-@PerfectlySoft-blue.svg?style=flat" alt="PerfectlySoft Twitter">
-    </a>
-    <a href="https://gitter.im/PerfectlySoft/Perfect?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge" target="_blank">
-        <img src="https://img.shields.io/badge/Gitter-Join%20Chat-brightgreen.svg" alt="Join the chat at https://gitter.im/PerfectlySoft/Perfect">
-    </a>
-    <a href="http://perfect.ly" target="_blank">
-        <img src="http://perfect.ly/badge.svg" alt="Slack Status">
-    </a>
-</p>
-A Heroku Buildpack for Swift + Perfect.
+## Usage
 
-## Issues
+Example usage:
 
-We are transitioning to using JIRA for all bugs and support related issues, therefore the GitHub issues has been disabled.
+```shell
+$ ls
+Procfile Package.swift Sources
 
-If you find a mistake, bug, or any other helpful suggestion you'd like to make on the docs please head over to [http://jira.perfect.org:8080/servicedesk/customer/portal/1](http://jira.perfect.org:8080/servicedesk/customer/portal/1) and raise it.
+$ heroku create --buildpack https://github.com/kylef/heroku-buildpack-swift.git
 
-A comprehensive list of open issues can be found at [http://jira.perfect.org:8080/projects/ISS/issues](http://jira.perfect.org:8080/projects/ISS/issues)
-
-
-This "Buildpack" makes dependencies available at the /app/.delta/ path.  These
-include Swift and Perfect.
-
-Your project must have the following file and directory structure:
-
-```
-  src/                : Contains your source code
-  src/makefile        : Invoked by the Buildpack
-  src/Package.perfect : Informs Buildpack about your Perfect project
+$ git push heroku master
+remote: -----> Swift app detected
+remote: -----> Installing Swift 3.0.1
+remote: -----> Installing clang-3.7.0
+remote: -----> Building Package
+remote: -----> Copying binaries to 'bin'
 ```
 
-Your project will have the following structure after building:
+You can also add it to upcoming builds of an existing application:
 
-```
-PerfectLibraries/   : Modules for Perfect Server can go in here
-  webroot/            : Files for Perfect Server stand-alone can go in here
-```
-
-Your project should have the following structure:
-
-```
-Procfile            : This informs Heroku about processes to deploy
+```shell
+$ heroku buildpacks:set https://github.com/kylef/heroku-buildpack-swift.git
 ```
 
-This Buildpack will move into your src/ directory, then invoke 'make', followed
-by 'make install'.  See the following example Github project:
+The buildpack will detect your app as Swift if it has a `Package.swift` file in
+the root.
 
-  https://github.com/PerfectlySoft/Perfect-Heroku-Buildpack-Example
+### Procfile
+
+Using the Procfile, you can set the process to run for your web server. Any
+binaries built from your Swift source using swift package manager will
+be placed in your $PATH.
+
+```swift
+web: HelloWorld --workers 3 --bind 0.0.0.0:$PORT
+```
+
+### Specify a Swift version
+
+You can also customise the version of Swift used with a `.swift-version` file
+in your repository:
+
+```shell
+$ cat .swift-version
+3.0.1
+```
+
+The `.swift-version` file is completely compatible with
+[swiftenv](http://github.com/kylef/swiftenv).
+
+**NOTE**: *Since there are frequent Swift language changes, it's advised that
+you pin to your Swift version.*
+
+### Hooks
+
+You can place custom scripts to be ran before and after compiling your Swift
+source code inside the following files in your repository:
+
+- `bin/pre_compile`
+- `bin/post_compile`
+
+This is useful if you would need to install any other dependencies.

@@ -1,221 +1,42 @@
-#!/bin/bash
-# Copyright (C) 2016 Synthetel Corporation
-# Author: Shao Miller <swiftcode@synthetel.com>
+#!/usr/bin/env bash
+# bin/compile <build-dir> <cache-dir>
 
-function decomp() {
-    gunzip -f $CACHE_DIR/$1 || fail Decompressing $1
-  }
+set -e
+set -o pipefail
 
-function fail() {
-    say Build failure: $*
-    step Log
-    popd
-    cat $BUILD_DIR/build.log
-    exit 1
-  }
+BIN_DIR=$(cd $(dirname $0); pwd)
+ROOT_DIR=$(dirname $BIN_DIR)
 
-function fetch() {
-    wget -P $CACHE_DIR $URL/$1 2> /dev/null || fail Fetching $1
-  }
-
-indent() {
-  sed -u 's/^/       /'
-}
-
-function paths() {
-    cat << EOF
-#!/bin/bash
-MY_PATH=$1
-if [ "\$MY_PATH" == "" ]; then
-    MY_PATH=\$(dirname \$(dirname \$(readlink -f \$0)))/.delta
-  fi
-export INCLUDE_PATH=\$MY_PATH/usr/local/include:\$MY_PATH/usr/local/include/x86_64-linux-gnu:\$MY_PATH/usr/include:\$MY_PATH/usr/include/x86_64-linux-gnu:\$INCLUDE_PATH
-export LD_LIBRARY_PATH=\$MY_PATH/usr/local/lib:\$MY_PATH/usr/local/lib/x86_64-linux-gnu:\$MY_PATH/usr/lib:\$MY_PATH/usr/lib/x86_64-linux-gnu:\$LD_LIBRARY_PATH
-export LIBRARY_PATH=\$MY_PATH/usr/local/lib:\$MY_PATH/usr/local/lib/x86_64-linux-gnu:\$MY_PATH/usr/lib:\$MY_PATH/usr/lib/x86_64-linux-gnu:\$LIBRARY_PATH
-export PATH=\$MY_PATH/usr/local/bin:\$MY_PATH/usr/local/sbin:\$MY_PATH/usr/bin:\$MY_PATH/usr/sbin:\$PATH
-export PKG_CONFIG_PATH=\$MY_PATH/usr/lib/x86_64-linux-gnu/pkgconfig:\$PKG_CONFIG_PATH
-EOF
-  }
-
-function say() {
-    echo $* | sed -u 's/^/       /'
-  }
-
-function step() {
-    echo -----\> $*
-  }
-
-function untar() {
-    tar -C $CACHE_DIR -xf $CACHE_DIR/$1 || fail Extracting $1
-    rm -f $CACHE_DIR/$1
-  }
-
-function untar_rt() {
-    tar -C $CACHE_DIR/runtime -xf $CACHE_DIR/$1 || fail Extracting $1
-    rm -f $CACHE_DIR/$1
-  }
-
-pushd .
-
-step Checking stack
-if [ ! -f /etc/lsb-release ]; then
-    fail Sorry, only Ubuntu 14.04 is currently supported
-  fi
-. /etc/lsb-release
-if [ "$DISTRIB_RELEASE" != "14.04" ]; then
-    fail Sorry, only Ubuntu 14.04 is currently supported
-  fi
-say Ok.  Ubuntu 14.04 found
-
-step Setting environment
 BUILD_DIR=$1
 CACHE_DIR=$2
-SCRIPT_VER=3
-say Ok
+ENV_DIR=$3
 
-step Ensuring cache directory
-mkdir $CACHE_DIR 2> $BUILD_DIR/build.log
-mkdir $CACHE_DIR/runtime 2> $BUILD_DIR/build.log
-if [ -d $CACHE_DIR -a -d $CACHE_DIR/runtime ]; then
-    true
-  else
-    fail Creating cache dir
-  fi
-say Ok
+DEFAULT_SWIFT_VERSION="3.0.1"
+CLANG_VERSION=3.7.0
+SWIFT_BUILD_CONFIGURATION="release"
+SWIFT_BUILD_FLAGS=""
 
-step Generating profile script
-mkdir $BUILD_DIR/.profile.d 2> $BUILD_DIR/build.log
-if [ -d $BUILD_DIR/.profile.d ]; then
-    true
-  else
-    fail Creating .profile.d dir
-  fi
-paths /app/.delta > $BUILD_DIR/.profile.d/perfect.sh || fail Saving perfect.sh
-chmod a+x $BUILD_DIR/.profile.d/perfect.sh || fail chmod perfect.sh
-say Ok
+if [ -f "$ENV_DIR/SWIFT_BUILD_CONFIGURATION" ]; then
+  SWIFT_BUILD_CONFIGURATION=`cat "$ENV_DIR/SWIFT_BUILD_CONFIGURATION"`
+fi
+if [ -f "$ENV_DIR/SWIFT_BUILD_FLAGS" ]; then
+  SWIFT_BUILD_FLAGS=`cat "$ENV_DIR/SWIFT_BUILD_FLAGS"`
+fi
 
-step Setting paths
-. $BUILD_DIR/.profile.d/perfect.sh || fail Executing perfect.sh
-say Ok
+mkdir -p "$CACHE_DIR"
 
-step Checking dependencies
-if [ -f $CACHE_DIR/depends_done.$SCRIPT_VER ]; then
-    say Dependencies cached
-  else
-    say Ok
-    step Fetching dependencies
-    URL=http://www.perfect.org/_buildpack
-    fetch cedar14-clang-v2.tar.gz
-    fetch cedar14-libicu-dev.tar.gz
-    fetch cedar14-libmongoc.tar.gz
-    fetch cedar14-libsasl2-dev.tar.gz
-    fetch cedar14-libsqlite3-dev.tar.gz
-    fetch cedar14-libssl-dev.tar.gz
-    fetch cedar14-perfect.tar.gz
-    fetch cedar14-uuid-dev.tar.gz
-    fetch ubuntu14-clang-rt.tar.gz
-    fetch ubuntu14-libevent-rt.tar.gz
-    fetch ubuntu14-libicu-rt.tar.gz
-    fetch ubuntu14-libmongoc-rt.tar.gz
-    fetch ubuntu14-libsasl2-rt.tar.gz
-    fetch ubuntu14-libsqlite3-rt.tar.gz
-    fetch ubuntu14-libssl-rt.tar.gz
-    fetch ubuntu14-perfect-rt.tar.gz
-    fetch ubuntu14-swift-rt.tar.gz
-    fetch ubuntu14-uuid-rt.tar.gz
-    URL=https://swift.org/builds/swift-2.2-release/ubuntu1404/swift-2.2-RELEASE
-    fetch swift-2.2-RELEASE-ubuntu14.04.tar.gz
-    say Ok
-    step Checking dependency MD5 values
-    md5sum -c << EOF || fail Bad MD5 value
-471e8f370015101a004998603922e919  $CACHE_DIR/cedar14-clang-v2.tar.gz
-d50c65959548987594528e2704d67588  $CACHE_DIR/cedar14-libicu-dev.tar.gz
-e2fa8dc41b7d6cce8473f875ab6627d0  $CACHE_DIR/cedar14-libmongoc.tar.gz
-7f1d40eb4144a83530588d5de68da119  $CACHE_DIR/cedar14-libsasl2-dev.tar.gz
-1a5e9d15b8aeac4079adac56e938b4ac  $CACHE_DIR/cedar14-libsqlite3-dev.tar.gz
-16c5dcd214390fd64af1a45d1860c135  $CACHE_DIR/cedar14-libssl-dev.tar.gz
-4c640c4b36c613e4ad52cf0dc5fea853  $CACHE_DIR/cedar14-perfect.tar.gz
-24e6b6007e29a04b4751d562c5534c4b  $CACHE_DIR/cedar14-uuid-dev.tar.gz
-58c5c574183bccd9945675768f2adba5  $CACHE_DIR/swift-2.2-RELEASE-ubuntu14.04.tar.gz
-956144cc1494fe22cd0b16347896057b  $CACHE_DIR/ubuntu14-clang-rt.tar.gz
-bf91872e5ffc3dad40cf060f95aabce5  $CACHE_DIR/ubuntu14-libevent-rt.tar.gz
-aeaf99f022ba54420b36cd84abd86456  $CACHE_DIR/ubuntu14-libicu-rt.tar.gz
-7f2f1bc7dfdab06da0b41d7429acc5ab  $CACHE_DIR/ubuntu14-libmongoc-rt.tar.gz
-b619fcfd5f3df2c8111ca222957d684b  $CACHE_DIR/ubuntu14-libsasl2-rt.tar.gz
-53398947bf52c53b805ab51161ff1f24  $CACHE_DIR/ubuntu14-libsqlite3-rt.tar.gz
-3a6cb0424e11e8e0f107b8eb41061dfe  $CACHE_DIR/ubuntu14-libssl-rt.tar.gz
-184728a2242aceb901b80139daa43db7  $CACHE_DIR/ubuntu14-perfect-rt.tar.gz
-e735ca4d483c39da3661b6ee08f78204  $CACHE_DIR/ubuntu14-swift-rt.tar.gz
-3f9db16d9b85a9534739826a3f9049b2  $CACHE_DIR/ubuntu14-uuid-rt.tar.gz
-EOF
-    say Ok
-    step Decompressing dependencies
-    decomp cedar14-clang-v2.tar.gz
-    decomp cedar14-libicu-dev.tar.gz
-    decomp cedar14-libmongoc.tar.gz
-    decomp cedar14-libsasl2-dev.tar.gz
-    decomp cedar14-libsqlite3-dev.tar.gz
-    decomp cedar14-libssl-dev.tar.gz
-    decomp cedar14-perfect.tar.gz
-    decomp cedar14-uuid-dev.tar.gz
-    decomp swift-2.2-RELEASE-ubuntu14.04.tar.gz
-    decomp ubuntu14-clang-rt.tar.gz
-    decomp ubuntu14-libevent-rt.tar.gz
-    decomp ubuntu14-libicu-rt.tar.gz
-    decomp ubuntu14-libmongoc-rt.tar.gz
-    decomp ubuntu14-libsasl2-rt.tar.gz
-    decomp ubuntu14-libsqlite3-rt.tar.gz
-    decomp ubuntu14-libssl-rt.tar.gz
-    decomp ubuntu14-perfect-rt.tar.gz
-    decomp ubuntu14-swift-rt.tar.gz
-    decomp ubuntu14-uuid-rt.tar.gz
-    say Ok
-    step Extracting dependencies
-    untar swift-2.2-RELEASE-ubuntu14.04.tar
-    rsync -Pa $CACHE_DIR/swift-2.2-RELEASE-ubuntu14.04/ $CACHE_DIR/.delta/ > $BUILD_DIR/build.log || fail Renaming Swift dir
-    rm -rf $CACHE_DIR/swift-2.2-RELEASE-ubuntu14.04
-    untar cedar14-clang-v2.tar
-    untar cedar14-libicu-dev.tar
-    untar cedar14-libmongoc.tar
-    untar cedar14-libsasl2-dev.tar
-    untar cedar14-libsqlite3-dev.tar
-    untar cedar14-libssl-dev.tar
-    untar cedar14-perfect.tar
-    untar cedar14-uuid-dev.tar
-    untar_rt ubuntu14-clang-rt.tar
-    untar_rt ubuntu14-libevent-rt.tar
-    untar_rt ubuntu14-libicu-rt.tar
-    untar_rt ubuntu14-libmongoc-rt.tar
-    untar_rt ubuntu14-libsasl2-rt.tar
-    untar_rt ubuntu14-libsqlite3-rt.tar
-    untar_rt ubuntu14-libssl-rt.tar
-    untar_rt ubuntu14-perfect-rt.tar
-    untar_rt ubuntu14-swift-rt.tar
-    untar_rt ubuntu14-uuid-rt.tar
-    touch $CACHE_DIR/depends_done.$SCRIPT_VER
-  fi
-say Ok
+source "$BIN_DIR/utils"
+source "$BIN_DIR/steps/swiftenv"
+source "$BIN_DIR/steps/swift"
+source "$BIN_DIR/steps/clang"
+source "$BIN_DIR/steps/hooks/pre_compile"
+source "$BIN_DIR/steps/swift-build"
+source "$BIN_DIR/steps/swift-install"
 
-step Installing build dependencies into build environment
-rsync -Pa $CACHE_DIR/.delta/ /app/.delta/ > $BUILD_DIR/build.log || fail rsync
-say Ok
+# Setup application environment
+mkdir -p $BUILD_DIR/.profile.d
 
-step Making application
-mkdir $BUILD_DIR/Sources 2> $BUILD_DIR/build.log
-mkdir $BUILD_DIR/webroot 2> $BUILD_DIR/build.log
-if [ -d $BUILD_DIR/Sources -a -d $BUILD_DIR/webroot ]; then
-    true
-  else
-    fail Creating application directories
-  fi
-cd $BUILD_DIR/src
-make > $BUILD_DIR/build.log 2>&1 || fail make
-make install > $BUILD_DIR/build.log 2>&1 || fail make install
-popd
-say Ok
+set-env PATH '$HOME/.swift-bin:$PATH'
+set-env LD_LIBRARY_PATH '$HOME/.swift-lib'
 
-step Installing run-time dependencies into deployment environment
-pushd .
-rsync -Pa $CACHE_DIR/runtime/.delta/ $BUILD_DIR/.delta/ > $BUILD_DIR/build.log || fail rsync
-say Ok
-
+source "$BIN_DIR/steps/hooks/post_compile"

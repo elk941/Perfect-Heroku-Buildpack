@@ -1,10 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# bin/detect <build-dir>
 
-if [ -f $1/Package.swift -a -f $1/Sources/main.swift ]; then
-    echo "Perfect"
-    exit 0
-  else
-    echo "Imperfect"
-    exit 1
-  fi
-#!/bin/bash
+if [[ -f $1/Package.swift ]]; then
+  echo "Swift" && exit 0
+else
+  echo "no" && exit 1
+fi
