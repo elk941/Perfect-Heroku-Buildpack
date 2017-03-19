@@ -7,3 +7,4 @@ if [ -f $1/Package.swift -a -f $1/Sources/main.swift ]; then
     echo "Imperfect"
     exit 1
   fi
+#!/bin/bash
