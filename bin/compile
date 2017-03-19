@@ -25,6 +25,8 @@ fi
 
 mkdir -p "$CACHE_DIR"
 
+#test
+
 source "$BIN_DIR/utils"
 source "$BIN_DIR/steps/swiftenv"
 source "$BIN_DIR/steps/swift"
